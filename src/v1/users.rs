@@ -1,23 +1,27 @@
-use actix_web::{HttpResponse, web};
-use actix_web::web::ServiceConfig;
+use actix_web::{HttpRequest, HttpResponse, web};
+use actix_web::error::PathError;
+use actix_web::web::{PathConfig, ServiceConfig};
 use uuid::Uuid;
-use crate::{Error, RepositoryInjection};
+use crate::RepositoryInjection;
 
 const PATH: &str = "/user";
 
 pub fn service(cfg: &mut ServiceConfig) {
-    cfg.service(web::scope(PATH).route("/{user_id}", web::get().to(get)));
+    cfg.service(web::scope(PATH)
+        .app_data(PathConfig::default().error_handler(path_config_handler))
+        .route("/{user_id}", web::get().to(get))
+    );
 }
 
-async fn get(user_id: web::Path<String>, repo: web::Data<RepositoryInjection>) -> HttpResponse {
-    if let Ok(parsed_user_id) = Uuid::parse_str(&user_id) {
-        match repo.get_user(&parsed_user_id) {
-            Ok(user) => HttpResponse::Ok().json(user),
-            Err(err) => HttpResponse::NotFound().json(err)
-        }
-    } else {
-        HttpResponse::BadRequest().json(Error::new("Invalid UUID".to_string(), 400))
+async fn get(user_id: web::Path<Uuid>, repo: RepositoryInjection) -> HttpResponse {
+    match repo.get_user(&user_id) {
+        Ok(user) => HttpResponse::Ok().json(user),
+        Err(err) => HttpResponse::NotFound().json(err)
     }
+}
+
+fn path_config_handler(err: PathError, _req: &HttpRequest) -> actix_web::Error {
+    actix_web::error::ErrorBadRequest(err)
 }
 
 #[cfg(test)]
@@ -28,25 +32,17 @@ mod tests {
 
     #[actix_rt::test]
     async fn get_user_service_with_success() {
-        let res = get(web::Path::from("71802ecd-4eb3-4381-af7e-f737e3a35d5c".to_string()),
-                      web::Data::new(RepositoryInjection::new(MemoryRepository::default()))
+        let res = get(web::Path::from(uuid::Uuid::parse_str("71802ecd-4eb3-4381-af7e-f737e3a35d5c").unwrap()),
+              RepositoryInjection::new(MemoryRepository::default())
         ).await;
         assert!(res.status().is_success());
         assert_eq!(res.status(), StatusCode::OK);
     }
 
     #[actix_rt::test]
-    async fn get_user_service_with_invalid_uuid() {
-        let res = get(web::Path::from("71802ecd-4eb3-4381-af7e-f737e3a35d5cd".to_string()),
-                      web::Data::new(RepositoryInjection::new(MemoryRepository::default()))
-        ).await;
-        assert_eq!(res.status(), StatusCode::BAD_REQUEST);
-    }
-
-    #[actix_rt::test]
     async fn get_user_service_with_error() {
-        let res = get(web::Path::from("71802ecd-4eb3-4381-af7e-f737e3a35d5d".to_string()),
-                      web::Data::new(RepositoryInjection::new(MemoryRepository::default()))
+        let res = get(web::Path::from(uuid::Uuid::parse_str("71802ecd-4eb3-4381-af7e-f737e3a35d5d").unwrap()),
+                  RepositoryInjection::new(MemoryRepository::default())
         ).await;
         assert_eq!(res.status(), StatusCode::NOT_FOUND);
     }
