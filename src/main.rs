@@ -6,7 +6,7 @@ mod v1;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
-use actix_web::{web, App, HttpServer};
+use actix_web::{App, HttpServer};
 use crate::error::Error;
 use crate::repository::{MemoryRepository, RepositoryInjection};
 
@@ -19,7 +19,7 @@ async fn main() -> std::io::Result<()> {
     println!("Starting server");
     let thread_counter = Arc::new(AtomicU16::new(1));
     let repo = RepositoryInjection::new(MemoryRepository::default());
-    let repo = web::Data::new(repo);
+    //let repo = web::Data::new(repo);
 
     HttpServer::new(move || {
         let thread_index = thread_counter.fetch_add(1, Ordering::SeqCst);
