@@ -41,7 +41,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn it_works() {
+    async fn get_user_service_with_success() {
         let user_id = uuid::Uuid::new_v4();
         let user_name = "Meu nome";
 
