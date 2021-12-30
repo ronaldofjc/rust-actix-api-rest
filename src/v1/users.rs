@@ -26,9 +26,10 @@ fn path_config_handler(err: PathError, _req: &HttpRequest) -> actix_web::Error {
 
 #[cfg(test)]
 mod tests {
+    use actix_web::http::StatusCode;
     use super::*;
     use crate::user::User;
-    use crate::Error;
+    use crate::{Error, MemoryRepository};
     use mockall::*;
     use mockall::predicate::*;
 
@@ -63,5 +64,13 @@ mod tests {
 
         assert_eq!(user.id, user_id);
         assert_eq!(user.name, user_name);
+    }
+
+    #[actix_rt::test]
+    async fn get_user_service_with_error() {
+        let res = get(web::Path::from(uuid::Uuid::parse_str("71802ecd-4eb3-4381-af7e-f737e3a35d5d").unwrap()),
+              web::Data::new(MemoryRepository::default())
+        ).await;
+        assert_eq!(res.status(), StatusCode::NOT_FOUND);
     }
 }
