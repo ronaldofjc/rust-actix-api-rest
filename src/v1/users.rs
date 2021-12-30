@@ -2,18 +2,18 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use actix_web::error::PathError;
 use actix_web::web::{PathConfig, ServiceConfig};
 use uuid::Uuid;
-use crate::RepositoryInjection;
+use crate::repository::Repository;
 
 const PATH: &str = "/user";
 
-pub fn service(cfg: &mut ServiceConfig) {
+pub fn service<R: Repository>(cfg: &mut ServiceConfig) {
     cfg.service(web::scope(PATH)
         .app_data(PathConfig::default().error_handler(path_config_handler))
-        .route("/{user_id}", web::get().to(get))
+        .route("/{user_id}", web::get().to(get::<R>))
     );
 }
 
-async fn get(user_id: web::Path<Uuid>, repo: RepositoryInjection) -> HttpResponse {
+async fn get<R: Repository>(user_id: web::Path<Uuid>, repo: web::Data<R>) -> HttpResponse {
     match repo.get_user(&user_id) {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(err) => HttpResponse::NotFound().json(err)
