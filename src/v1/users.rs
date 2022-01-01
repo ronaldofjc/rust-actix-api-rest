@@ -2,6 +2,7 @@ use actix_web::{HttpRequest, HttpResponse, web};
 use actix_web::error::PathError;
 use actix_web::web::{PathConfig, ServiceConfig};
 use uuid::Uuid;
+use crate::create_user::CreateUser;
 use crate::repository::Repository;
 use crate::user::User;
 
@@ -10,11 +11,19 @@ const PATH: &str = "/user";
 pub fn service<R: Repository>(cfg: &mut ServiceConfig) {
     cfg.service(web::scope(PATH)
         .app_data(PathConfig::default().error_handler(path_config_handler))
+        .route("", web::get().to(get_all::<R>))
         .route("/{user_id}", web::get().to(get::<R>))
         .route("", web::post().to(post::<R>))
         .route("", web::put().to(put::<R>))
-        .route("/{user_id}", web::delete().to(delete::<R>)),
+        .route("/{user_id}", web::delete().to(delete::<R>))
     );
+}
+
+async fn get_all<R: Repository>(repo: web::Data<R>) -> HttpResponse {
+    match repo.get_all() {
+        Ok(user) => HttpResponse::Ok().json(user),
+        Err(err) => HttpResponse::NotFound().json(err)
+    }
 }
 
 async fn get<R: Repository>(user_id: web::Path<Uuid>, repo: web::Data<R>) -> HttpResponse {
@@ -24,7 +33,7 @@ async fn get<R: Repository>(user_id: web::Path<Uuid>, repo: web::Data<R>) -> Htt
     }
 }
 
-async fn post<R: Repository>(user: web::Json<User>, repo: web::Data<R>) -> HttpResponse {
+async fn post<R: Repository>(user: web::Json<CreateUser>, repo: web::Data<R>) -> HttpResponse {
     match repo.create_user(&user) {
         Ok(user) => HttpResponse::Created().json(user),
         Err(err) => HttpResponse::UnprocessableEntity().json(err)
@@ -56,16 +65,19 @@ mod tests {
     use super::*;
     use crate::user::{CustomData, User};
     use crate::{Error, MemoryRepository};
+    use crate::create_user::{CreateUser, CustomData as OtherCustomData};
     use mockall::*;
     use mockall::predicate::*;
 
     mock! {
         CustomRepo {}
         impl Repository for CustomRepo {
+            fn get_all(&self) -> Result<Vec<User>, Error>;
             fn get_user(&self, user_id: &uuid::Uuid) -> Result<User, Error>;
-            fn create_user(&self, user_id: &User) -> Result<User, Error>;
+            fn create_user(&self, user: &CreateUser) -> Result<User, Error>;
             fn update_user(&self, user: &User) -> Result<User, Error>;
             fn delete_user(&self, user_id: &uuid::Uuid) -> Result<Uuid, Error>;
+            fn get_user_by_email(&self, user_email: &String) -> Result<User, Error>;
         }
     }
 
@@ -74,8 +86,21 @@ mod tests {
         User {
             id,
             name,
+            email: "teste@teste.com".to_string(),
             birth_date: NaiveDate::from_ymd(year, month, day),
             custom_data: CustomData { random: 1 },
+            created_at: Some(Utc::now()),
+            updated_at: None,
+        }
+    }
+
+    pub fn create_test_user_request(name: String, birth_date_ymd: (i32, u32, u32)) -> CreateUser {
+        let (year, month, day) = birth_date_ymd;
+        CreateUser {
+            name,
+            email: "teste@teste.com".to_string(),
+            birth_date: NaiveDate::from_ymd(year, month, day),
+            custom_data: OtherCustomData { random: 1 },
             created_at: Some(Utc::now()),
             updated_at: None,
         }
@@ -120,13 +145,16 @@ mod tests {
     async fn create_works() {
         let user_id = uuid::Uuid::new_v4();
         let user_name = "Meu nome";
-        let new_user = create_test_user(user_id, user_name.to_string(), (1977, 03, 10));
+        let create_user = create_test_user_request(user_name.to_string(), (1977, 03, 10));
 
         let mut repo = MockCustomRepo::default();
         repo.expect_create_user()
-            .returning(|user| Ok(user.to_owned()));
+            .returning(move |_user| {
+                let new_user = create_test_user(user_id, user_name.to_string(), (1977, 03, 10));
+                Ok(new_user)
+            });
 
-        let mut result = post(web::Json(new_user), web::Data::new(repo)).await;
+        let mut result = post(web::Json(create_user), web::Data::new(repo)).await;
 
         let user = result
             .take_body()
@@ -175,7 +203,7 @@ mod tests {
         let mut repo = MockCustomRepo::default();
         repo.expect_delete_user().returning(|id| Ok(id.to_owned()));
 
-        let mut result = delete(web::Path::from(user_id), web::Data::new(repo)).await;
+        let result = delete(web::Path::from(user_id), web::Data::new(repo)).await;
 
         assert_eq!(result.status(), StatusCode::NO_CONTENT);
     }
