@@ -3,6 +3,7 @@ mod repository;
 mod error;
 mod health;
 mod v1;
+mod create_user;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
