@@ -7,6 +7,7 @@ mod create_user;
 
 use std::sync::Arc;
 use std::sync::atomic::{AtomicU16, Ordering};
+use actix_cors::Cors;
 use actix_web::{App, HttpServer, web};
 use crate::error::Error;
 use crate::repository::{MemoryRepository};
@@ -26,6 +27,7 @@ async fn main() -> std::io::Result<()> {
         println!("Starting Thread {}", thread_index);
 
         App::new()
+            .wrap(Cors::default().supports_credentials())
             .data(thread_index)
             .app_data(repo.clone())
             .configure(v1::service::<MemoryRepository>)
