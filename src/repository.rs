@@ -1,17 +1,25 @@
 use std::sync::RwLock;
 use chrono::Utc;
 use uuid::Uuid;
+use async_trait::async_trait;
+
 use crate::create_user::CreateUser;
 use crate::Error;
 use crate::user::{CustomData, User};
 
+const USER_ERROR: &str = "Get user error";
+
+type RepositoryResult<T> = Result<T, Error>;
+type RepositoryResultList<T> = Result<Vec<T>, Error>;
+
+#[async_trait]
 pub trait Repository: Send + Sync + 'static {
-    fn get_all(&self) -> Result<Vec<User>, Error>;
-    fn get_user(&self, user_id: &Uuid) -> Result<User, Error>;
-    fn get_user_by_email(&self, user_email: &String) -> Result<User, Error>;
-    fn create_user(&self, user: &CreateUser) -> Result<User, Error>;
-    fn update_user(&self, user: &User) -> Result<User, Error>;
-    fn delete_user(&self, user_id: &uuid::Uuid) -> Result<Uuid, Error>;
+    async fn get_all(&self) -> RepositoryResultList<User>;
+    async fn get_user(&self, user_id: &Uuid) -> RepositoryResult<User>;
+    async fn get_user_by_email(&self, user_email: &String) -> RepositoryResult<User>;
+    async fn create_user(&self, user: &CreateUser) -> RepositoryResult<User>;
+    async fn update_user(&self, user: &User) -> RepositoryResult<User>;
+    async fn delete_user(&self, user_id: &Uuid) -> RepositoryResult<Uuid>;
 }
 
 pub struct MemoryRepository {
@@ -26,26 +34,27 @@ impl Default for MemoryRepository {
     }
 }
 
+#[async_trait]
 impl Repository for MemoryRepository {
-    fn get_all(&self) -> Result<Vec<User>, Error> {
+    async fn get_all(&self) -> RepositoryResultList<User> {
         let users = self.users.read()
-            .map_err(|_| Error::new("Unlock error".to_string(), 406))?;
+            .map_err(|_| Error::new(USER_ERROR.to_string(), 406))?;
         Ok(users.clone())
     }
 
-    fn get_user(&self, user_id: &uuid::Uuid) -> Result<User, Error> {
+    async fn get_user(&self, user_id: &uuid::Uuid) -> RepositoryResult<User> {
         let users = self.users.read()
-            .map_err(|_| Error::new("Unlock error".to_string(), 406))?;
+            .map_err(|_| Error::new(USER_ERROR.to_string(), 406))?;
         users
             .iter()
             .find(|u| &u.id == user_id)
             .cloned()
-            .ok_or_else(|| Error::new("User not found".to_string(), 404))
+            .ok_or_else(|| Error::new("Invalid Uuid".to_string(), 406))
     }
 
-    fn get_user_by_email(&self, user_email: &String) -> Result<User, Error> {
+    async fn get_user_by_email(&self, user_email: &String) -> RepositoryResult<User> {
         let users = self.users.read()
-            .map_err(|_| Error::new("Unlock error".to_string(), 406))?;
+            .map_err(|_| Error::new(USER_ERROR.to_string(), 406))?;
         users
             .iter()
             .find(|u| &u.email == user_email)
@@ -53,8 +62,8 @@ impl Repository for MemoryRepository {
             .ok_or_else(|| Error::new("User not found".to_string(), 404))
     }
 
-    fn create_user(&self, user: &CreateUser) -> Result<User, Error> {
-        if self.get_user_by_email(&user.email).is_ok() {
+    async fn create_user(&self, user: &CreateUser) -> RepositoryResult<User> {
+        if let Ok(_old_user) = self.get_user_by_email(&user.email).await {
             return Result::Err(Error::new("This user already exists".to_string(), 404));
         }
         let create_user = user.to_owned();
@@ -69,29 +78,31 @@ impl Repository for MemoryRepository {
             created_at: Some(Utc::now()),
             updated_at: None
         };
+
         let mut users = self.users.write()
-            .map_err(|_| Error::new("Unlock error".to_string(), 406))?;
+            .map_err(|_| Error::new(USER_ERROR.to_string(), 406))?;
         users.push(new_user.clone());
-        Result::Ok(new_user)
+        Ok(new_user)
     }
 
-    fn update_user(&self, user: &User) -> Result<User, Error> {
-        if self.get_user(&user.id).is_err() {
-            return Result::Err(Error::new("This user does not exist".to_string(), 404));
+    async fn update_user(&self, user: &User) -> RepositoryResult<User> {
+        if let Ok(old_user) = self.get_user(&user.id).await {
+            let mut updated_user = user.to_owned();
+            updated_user.created_at = old_user.created_at;
+            updated_user.updated_at = Some(Utc::now());
+            let mut users = self.users.write().unwrap();
+            users.retain(|x| x.id != user.id);
+            users.push(updated_user.clone());
+            Ok(updated_user)
+        } else {
+            Err(Error::new("This user does not exist".to_string(), 404))
         }
-        let mut update_user = user.to_owned();
-        update_user.updated_at = Some(Utc::now());
-        let mut users = self.users.write()
-            .map_err(|_| Error::new("Unlock error".to_string(), 406))?;
-        users.retain(|u| u.id != user.id);
-        users.push(update_user.clone());
-        Result::Ok(update_user)
     }
 
-    fn delete_user(&self, user_id: &Uuid) -> Result<Uuid, Error> {
+    async fn delete_user(&self, user_id: &Uuid) -> RepositoryResult<Uuid> {
         let mut users = self.users.write()
-            .map_err(|_| Error::new("Unlock error".to_string(), 406))?;
-        users.retain(|u| &u.id != user_id);
-        Result::Ok(user_id.to_owned())
+            .map_err(|_| Error::new(USER_ERROR.to_string(), 406))?;
+        users.retain(|x| &x.id != user_id);
+        Ok(user_id.to_owned())
     }
 }

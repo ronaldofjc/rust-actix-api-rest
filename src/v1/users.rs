@@ -20,35 +20,35 @@ pub fn service<R: Repository>(cfg: &mut ServiceConfig) {
 }
 
 async fn get_all<R: Repository>(repo: web::Data<R>) -> HttpResponse {
-    match repo.get_all() {
+    match repo.get_all().await {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(err) => HttpResponse::NotFound().json(err)
     }
 }
 
 async fn get<R: Repository>(user_id: web::Path<Uuid>, repo: web::Data<R>) -> HttpResponse {
-    match repo.get_user(&user_id) {
+    match repo.get_user(&user_id).await {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(err) => HttpResponse::NotFound().json(err)
     }
 }
 
 async fn post<R: Repository>(user: web::Json<CreateUser>, repo: web::Data<R>) -> HttpResponse {
-    match repo.create_user(&user) {
+    match repo.create_user(&user).await {
         Ok(user) => HttpResponse::Created().json(user),
         Err(err) => HttpResponse::UnprocessableEntity().json(err)
     }
 }
 
 async fn put<R: Repository>(user: web::Json<User>, repo: web::Data<R>) -> HttpResponse {
-    match repo.update_user(&user) {
+    match repo.update_user(&user).await {
         Ok(user) => HttpResponse::Ok().json(user),
         Err(err) => HttpResponse::UnprocessableEntity().json(err)
     }
 }
 
 async fn delete<R: Repository>(user_id: web::Path<Uuid>, repo: web::Data<R>) -> HttpResponse {
-    match repo.delete_user(&user_id) {
+    match repo.delete_user(&user_id).await {
         Ok(_) => HttpResponse::NoContent().finish(),
         Err(err) => HttpResponse::InternalServerError().json(err)
     }
