@@ -64,22 +64,8 @@ mod tests {
     use chrono::{NaiveDate, Utc};
     use super::*;
     use crate::user::{CustomData, User};
-    use crate::{Error, MemoryRepository};
+    use crate::{Error, repository::MockRepository};
     use crate::create_user::{CreateUser, CustomData as OtherCustomData};
-    use mockall::*;
-    use mockall::predicate::*;
-
-    mock! {
-        CustomRepo {}
-        impl Repository for CustomRepo {
-            fn get_all(&self) -> Result<Vec<User>, Error>;
-            fn get_user(&self, user_id: &uuid::Uuid) -> Result<User, Error>;
-            fn create_user(&self, user: &CreateUser) -> Result<User, Error>;
-            fn update_user(&self, user: &User) -> Result<User, Error>;
-            fn delete_user(&self, user_id: &uuid::Uuid) -> Result<Uuid, Error>;
-            fn get_user_by_email(&self, user_email: &String) -> Result<User, Error>;
-        }
-    }
 
     pub fn create_test_user(id: uuid::Uuid, name: String, birth_date_ymd: (i32, u32, u32)) -> User {
         let (year, month, day) = birth_date_ymd;
@@ -111,7 +97,7 @@ mod tests {
         let user_id = uuid::Uuid::new_v4();
         let user_name = "Meu nome";
 
-        let mut repo = MockCustomRepo::default();
+        let mut repo = MockRepository::default();
         repo.expect_get_user().returning(move |id| {
             let user = create_test_user(*id, user_name.to_string(), (1977, 03, 10));
             Ok(user)
@@ -135,9 +121,10 @@ mod tests {
 
     #[actix_rt::test]
     async fn get_user_service_with_error() {
-        let res = get(web::Path::from(uuid::Uuid::parse_str("71802ecd-4eb3-4381-af7e-f737e3a35d5d").unwrap()),
-              web::Data::new(MemoryRepository::default())
-        ).await;
+        let user_id = uuid::Uuid::parse_str("71802ecd-4eb3-4381-af7e-f737e3a35d5d");
+        let mut repo = MockRepository::default();
+        repo.expect_get_user().returning(move |_id| Err(Error::new("error".to_string(), 404)));
+        let res = get(web::Path::from(user_id.unwrap()), web::Data::new(repo)).await;
         assert_eq!(res.status(), StatusCode::NOT_FOUND);
     }
 
@@ -147,7 +134,7 @@ mod tests {
         let user_name = "Meu nome";
         let create_user = create_test_user_request(user_name.to_string(), (1977, 03, 10));
 
-        let mut repo = MockCustomRepo::default();
+        let mut repo = MockRepository::default();
         repo.expect_create_user()
             .returning(move |_user| {
                 let new_user = create_test_user(user_id, user_name.to_string(), (1977, 03, 10));
@@ -176,7 +163,7 @@ mod tests {
         let user_name = "Meu nome";
         let new_user = create_test_user(user_id, user_name.to_string(), (1977, 03, 10));
 
-        let mut repo = MockCustomRepo::default();
+        let mut repo = MockRepository::default();
         repo.expect_update_user()
             .returning(|user| Ok(user.to_owned()));
 
@@ -200,7 +187,7 @@ mod tests {
     async fn delete_works() {
         let user_id = uuid::Uuid::new_v4();
 
-        let mut repo = MockCustomRepo::default();
+        let mut repo = MockRepository::default();
         repo.expect_delete_user().returning(|id| Ok(id.to_owned()));
 
         let result = delete(web::Path::from(user_id), web::Data::new(repo)).await;

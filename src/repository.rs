@@ -9,9 +9,10 @@ use crate::user::{CustomData, User};
 
 const USER_ERROR: &str = "Get user error";
 
-type RepositoryResult<T> = Result<T, Error>;
-type RepositoryResultList<T> = Result<Vec<T>, Error>;
+pub type RepositoryResult<T> = Result<T, Error>;
+pub type RepositoryResultList<T> = Result<Vec<T>, Error>;
 
+#[cfg_attr(test, mockall::automock)]
 #[async_trait]
 pub trait Repository: Send + Sync + 'static {
     async fn get_all(&self) -> RepositoryResultList<User>;
@@ -49,7 +50,7 @@ impl Repository for MemoryRepository {
             .iter()
             .find(|u| &u.id == user_id)
             .cloned()
-            .ok_or_else(|| Error::new("Invalid Uuid".to_string(), 406))
+            .ok_or_else(|| Error::new("Invalid Uuid".to_string(), 404))
     }
 
     async fn get_user_by_email(&self, user_email: &String) -> RepositoryResult<User> {
@@ -64,7 +65,7 @@ impl Repository for MemoryRepository {
 
     async fn create_user(&self, user: &CreateUser) -> RepositoryResult<User> {
         if let Ok(_old_user) = self.get_user_by_email(&user.email).await {
-            return Result::Err(Error::new("This user already exists".to_string(), 404));
+            return Result::Err(Error::new("This user already exists".to_string(), 400));
         }
         let create_user = user.to_owned();
         let new_user = User {
