@@ -1,11 +1,11 @@
-use std::sync::RwLock;
-use chrono::Utc;
-use uuid::Uuid;
 use async_trait::async_trait;
+use chrono::Utc;
+use std::sync::RwLock;
+use uuid::Uuid;
 
 use crate::create_user::CreateUser;
-use crate::Error;
 use crate::user::{CustomData, User};
+use crate::Error;
 
 const USER_ERROR: &str = "Get user error";
 
@@ -24,13 +24,13 @@ pub trait Repository: Send + Sync + 'static {
 }
 
 pub struct MemoryRepository {
-    users: RwLock<Vec<User>>
+    users: RwLock<Vec<User>>,
 }
 
 impl Default for MemoryRepository {
     fn default() -> Self {
         Self {
-            users: RwLock::new(vec![])
+            users: RwLock::new(vec![]),
         }
     }
 }
@@ -38,14 +38,18 @@ impl Default for MemoryRepository {
 #[async_trait]
 impl Repository for MemoryRepository {
     async fn get_all(&self) -> RepositoryResultList<User> {
-        let users = self.users.read()
+        let users = self
+            .users
+            .read()
             .map_err(|_| Error::new(USER_ERROR.to_string(), 406))?;
         tracing::info!("Returning {} users", users.len());
         Ok(users.clone())
     }
 
     async fn get_user(&self, user_id: &uuid::Uuid) -> RepositoryResult<User> {
-        let users = self.users.read()
+        let users = self
+            .users
+            .read()
             .map_err(|_| Error::new(USER_ERROR.to_string(), 406))?;
         let result = users
             .iter()
@@ -61,7 +65,9 @@ impl Repository for MemoryRepository {
     }
 
     async fn get_user_by_email(&self, user_email: &String) -> RepositoryResult<User> {
-        let users = self.users.read()
+        let users = self
+            .users
+            .read()
             .map_err(|_| Error::new(USER_ERROR.to_string(), 406))?;
         let result = users
             .iter()
@@ -88,13 +94,15 @@ impl Repository for MemoryRepository {
             email: create_user.email,
             birth_date: create_user.birth_date,
             custom_data: CustomData {
-                random: create_user.custom_data.random
+                random: create_user.custom_data.random,
             },
             created_at: Some(Utc::now()),
-            updated_at: None
+            updated_at: None,
         };
 
-        let mut users = self.users.write()
+        let mut users = self
+            .users
+            .write()
             .map_err(|_| Error::new(USER_ERROR.to_string(), 406))?;
         users.push(new_user.clone());
         tracing::info!("User with id {} correctly created", new_user.id);
@@ -117,7 +125,9 @@ impl Repository for MemoryRepository {
     }
 
     async fn delete_user(&self, user_id: &Uuid) -> RepositoryResult<Uuid> {
-        let mut users = self.users.write()
+        let mut users = self
+            .users
+            .write()
             .map_err(|_| Error::new(USER_ERROR.to_string(), 406))?;
         users.retain(|x| &x.id != user_id);
         Ok(user_id.to_owned())

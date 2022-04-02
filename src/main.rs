@@ -1,16 +1,16 @@
-mod user;
-mod repository;
+mod create_user;
 mod error;
 mod health;
+mod repository;
+mod user;
 mod v1;
-mod create_user;
 
-use std::sync::Arc;
-use std::sync::atomic::{AtomicU16, Ordering};
-use actix_cors::Cors;
-use actix_web::{App, HttpServer, web};
 use crate::error::Error;
-use crate::repository::{MemoryRepository};
+use crate::repository::MemoryRepository;
+use actix_cors::Cors;
+use actix_web::{web, App, HttpServer};
+use std::sync::atomic::{AtomicU16, Ordering};
+use std::sync::Arc;
 use tracing_subscriber::{fmt::format::FmtSpan, EnvFilter};
 
 #[actix_web::main]
@@ -46,8 +46,13 @@ async fn main() -> std::io::Result<()> {
             .configure(v1::service::<MemoryRepository>)
             .configure(health::service)
     })
-        .bind(&address)
-        .unwrap_or_else(|err| panic!("🔥🔥🔥 Couldn't start the server in port {}: {:?}", port, err))
-        .run()
-        .await
+    .bind(&address)
+    .unwrap_or_else(|err| {
+        panic!(
+            "🔥🔥🔥 Couldn't start the server in port {}: {:?}",
+            port, err
+        )
+    })
+    .run()
+    .await
 }
