@@ -1,56 +1,57 @@
-use actix_web::{HttpRequest, HttpResponse, web};
-use actix_web::error::PathError;
-use actix_web::web::{PathConfig, ServiceConfig};
-use uuid::Uuid;
 use crate::create_user::CreateUser;
 use crate::repository::Repository;
 use crate::user::User;
+use actix_web::error::PathError;
+use actix_web::web::{PathConfig, ServiceConfig};
+use actix_web::{web, HttpRequest, HttpResponse};
+use uuid::Uuid;
 
 const PATH: &str = "/user";
 
 pub fn service<R: Repository>(cfg: &mut ServiceConfig) {
-    cfg.service(web::scope(PATH)
-        .app_data(PathConfig::default().error_handler(path_config_handler))
-        .route("", web::get().to(get_all::<R>))
-        .route("/{user_id}", web::get().to(get::<R>))
-        .route("", web::post().to(post::<R>))
-        .route("", web::put().to(put::<R>))
-        .route("/{user_id}", web::delete().to(delete::<R>))
+    cfg.service(
+        web::scope(PATH)
+            .app_data(PathConfig::default().error_handler(path_config_handler))
+            .route("", web::get().to(get_all::<R>))
+            .route("/{user_id}", web::get().to(get::<R>))
+            .route("", web::post().to(post::<R>))
+            .route("", web::put().to(put::<R>))
+            .route("/{user_id}", web::delete().to(delete::<R>)),
     );
 }
 
 async fn get_all<R: Repository>(repo: web::Data<R>) -> HttpResponse {
     match repo.get_all().await {
         Ok(user) => HttpResponse::Ok().json(user),
-        Err(err) => HttpResponse::NotFound().json(err)
+        Err(err) => HttpResponse::NotFound().json(err),
     }
 }
 
 async fn get<R: Repository>(user_id: web::Path<Uuid>, repo: web::Data<R>) -> HttpResponse {
     match repo.get_user(&user_id).await {
         Ok(user) => HttpResponse::Ok().json(user),
-        Err(err) => HttpResponse::NotFound().json(err)
+        Err(err) => HttpResponse::NotFound().json(err),
     }
 }
 
 async fn post<R: Repository>(user: web::Json<CreateUser>, repo: web::Data<R>) -> HttpResponse {
     match repo.create_user(&user).await {
         Ok(user) => HttpResponse::Created().json(user),
-        Err(err) => HttpResponse::UnprocessableEntity().json(err)
+        Err(err) => HttpResponse::UnprocessableEntity().json(err),
     }
 }
 
 async fn put<R: Repository>(user: web::Json<User>, repo: web::Data<R>) -> HttpResponse {
     match repo.update_user(&user).await {
         Ok(user) => HttpResponse::Ok().json(user),
-        Err(err) => HttpResponse::UnprocessableEntity().json(err)
+        Err(err) => HttpResponse::UnprocessableEntity().json(err),
     }
 }
 
 async fn delete<R: Repository>(user_id: web::Path<Uuid>, repo: web::Data<R>) -> HttpResponse {
     match repo.delete_user(&user_id).await {
         Ok(_) => HttpResponse::NoContent().finish(),
-        Err(err) => HttpResponse::InternalServerError().json(err)
+        Err(err) => HttpResponse::InternalServerError().json(err),
     }
 }
 
@@ -60,12 +61,12 @@ fn path_config_handler(err: PathError, _req: &HttpRequest) -> actix_web::Error {
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+    use crate::create_user::{CreateUser, CustomData as OtherCustomData};
+    use crate::user::{CustomData, User};
+    use crate::{repository::MockRepository, Error};
     use actix_web::http::StatusCode;
     use chrono::{NaiveDate, Utc};
-    use super::*;
-    use crate::user::{CustomData, User};
-    use crate::{Error, repository::MockRepository};
-    use crate::create_user::{CreateUser, CustomData as OtherCustomData};
 
     pub fn create_test_user(id: uuid::Uuid, name: String, birth_date_ymd: (i32, u32, u32)) -> User {
         let (year, month, day) = birth_date_ymd;
@@ -123,7 +124,8 @@ mod tests {
     async fn get_user_service_with_error() {
         let user_id = uuid::Uuid::parse_str("71802ecd-4eb3-4381-af7e-f737e3a35d5d");
         let mut repo = MockRepository::default();
-        repo.expect_get_user().returning(move |_id| Err(Error::new("error".to_string(), 404)));
+        repo.expect_get_user()
+            .returning(move |_id| Err(Error::new("error".to_string(), 404)));
         let res = get(web::Path::from(user_id.unwrap()), web::Data::new(repo)).await;
         assert_eq!(res.status(), StatusCode::NOT_FOUND);
     }
@@ -135,11 +137,10 @@ mod tests {
         let create_user = create_test_user_request(user_name.to_string(), (1977, 03, 10));
 
         let mut repo = MockRepository::default();
-        repo.expect_create_user()
-            .returning(move |_user| {
-                let new_user = create_test_user(user_id, user_name.to_string(), (1977, 03, 10));
-                Ok(new_user)
-            });
+        repo.expect_create_user().returning(move |_user| {
+            let new_user = create_test_user(user_id, user_name.to_string(), (1977, 03, 10));
+            Ok(new_user)
+        });
 
         let mut result = post(web::Json(create_user), web::Data::new(repo)).await;
 

@@ -1,16 +1,13 @@
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Error {
     pub message: String,
-    pub status: u16
+    pub status: u16,
 }
 
 impl Error {
     pub fn new(message: String, status: u16) -> Self {
-        Self {
-            message,
-            status
-        }
+        Self { message, status }
     }
 }

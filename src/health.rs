@@ -1,5 +1,5 @@
-use actix_web::{HttpResponse, web};
 use actix_web::web::ServiceConfig;
+use actix_web::{web, HttpResponse};
 use tracing::instrument;
 
 #[instrument(skip(cfg), level = "trace")]
@@ -10,14 +10,16 @@ pub fn service(cfg: &mut ServiceConfig) {
 
 #[instrument]
 async fn health_check(index: web::Data<u16>) -> HttpResponse {
-    HttpResponse::Ok().header("thread-id", index.to_string()).finish()
+    HttpResponse::Ok()
+        .header("thread-id", index.to_string())
+        .finish()
 }
 
 #[cfg(test)]
 mod tests {
-    use actix_web::App;
-    use actix_web::http::StatusCode;
     use super::*;
+    use actix_web::http::StatusCode;
+    use actix_web::App;
 
     #[actix_rt::test]
     async fn health_check_works() {
@@ -36,7 +38,9 @@ mod tests {
     async fn health_check_integration_works() {
         let app = App::new().app_data(web::Data::new(5u16)).configure(service);
         let mut app = actix_web::test::init_service(app).await;
-        let req = actix_web::test::TestRequest::get().uri("/health").to_request();
+        let req = actix_web::test::TestRequest::get()
+            .uri("/health")
+            .to_request();
         let res = actix_web::test::call_service(&mut app, req).await;
         assert!(res.status().is_success());
         assert_eq!(res.status(), StatusCode::OK);
