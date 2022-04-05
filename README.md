@@ -1,13 +1,14 @@
 # API Rest with Rust and Actix Web
 This project aims to present a Rust project with Actix Web
 
-Technologies used: Rust, Actix Web, Chrono, Serde, async-trait, tracing
+Technologies used: Rust, Actix Web, Chrono, Serde, Async-Trait, Tracing, Sqlx, Postgres
 
 ### Pre-Requires
-- rust
-- cargo
-- cargo-make
+  - Rust and Cargo ([Install](https://www.rust-lang.org/tools/install))
+  - cargo-make
   `cargo install --force cargo-make`
+  - podman ([Install](https://podman.io/getting-started/installation))
+  - sqlx-cli ([Link](https://github.com/launchbadge/sqlx) | [Install](cargo install sqlx-cli))
 
 ### Commands
 
