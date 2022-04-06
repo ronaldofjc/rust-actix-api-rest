@@ -94,7 +94,31 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn get_works() {
+    async fn get_all_with_success() {
+        let user_id = uuid::Uuid::new_v4();
+        let user_name = "Meu nome";
+
+        let mut repo = MockRepository::default();
+        repo.expect_get_all().returning(move || {
+            let users = vec![create_test_user(user_id, user_name.to_string(), (1977, 03, 10))];
+            Ok(users)
+        });
+
+        let result = get_all(web::Data::new(repo)).await;
+        assert_eq!(result.status(), StatusCode::OK);
+    }
+
+    #[actix_rt::test]
+    async fn get_all_with_error() {
+        let mut repo = MockRepository::default();
+        repo.expect_get_all().returning(move || Err(Error::new("error".to_string(), 502)));
+
+        let result = get_all(web::Data::new(repo)).await;
+        assert_eq!(result.status(), StatusCode::BAD_GATEWAY);
+    }
+
+    #[actix_rt::test]
+    async fn get_user_with_success() {
         let user_id = uuid::Uuid::new_v4();
         let user_name = "Meu nome";
 
@@ -110,7 +134,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn get_user_service_with_error() {
+    async fn get_user_with_error() {
         let user_id = uuid::Uuid::parse_str("71802ecd-4eb3-4381-af7e-f737e3a35d5d");
         let mut repo = MockRepository::default();
         repo.expect_get_user()
@@ -120,7 +144,7 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn create_works() {
+    async fn create_with_success() {
         let user_id = uuid::Uuid::new_v4();
         let user_name = "Meu nome";
         let create_user = create_test_user_request(user_name.to_string(), (1977, 03, 10));
@@ -137,32 +161,62 @@ mod tests {
     }
 
     #[actix_rt::test]
-    async fn update_works() {
+    async fn create_with_error() {
+        let user_name = "Meu nome";
+        let create_user = create_test_user_request(user_name.to_string(), (1977, 03, 10));
+
+        let mut repo = MockRepository::default();
+        repo.expect_create_user().returning(move |_user| Err(Error::new("error".to_string(), 422)));
+
+        let result = post(web::Json(create_user), web::Data::new(repo)).await;
+        assert_eq!(result.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[actix_rt::test]
+    async fn update_with_success() {
         let user_id = uuid::Uuid::new_v4();
         let user_name = "Meu nome";
         let new_user = create_test_user(user_id, user_name.to_string(), (1977, 03, 10));
 
         let mut repo = MockRepository::default();
-        repo.expect_update_user()
-            .returning(|user| Ok(user.to_owned()));
+        repo.expect_update_user().returning(|user| Ok(user.to_owned()));
 
         let result = put(web::Json(new_user), web::Data::new(repo)).await;
-
         assert_eq!(result.status(), StatusCode::OK);
-
-        //assert_eq!(user.id, user_id);
-        //assert_eq!(user.name, user_name);
     }
 
     #[actix_rt::test]
-    async fn delete_works() {
+    async fn update_with_error() {
+        let user_id = uuid::Uuid::new_v4();
+        let user_name = "Meu nome";
+        let new_user = create_test_user(user_id, user_name.to_string(), (1977, 03, 10));
+
+        let mut repo = MockRepository::default();
+        repo.expect_update_user().returning(|_user| Err(Error::new("error".to_string(), 422)));
+
+        let result = put(web::Json(new_user), web::Data::new(repo)).await;
+        assert_eq!(result.status(), StatusCode::UNPROCESSABLE_ENTITY);
+    }
+
+    #[actix_rt::test]
+    async fn delete_with_success() {
         let user_id = uuid::Uuid::new_v4();
 
         let mut repo = MockRepository::default();
         repo.expect_delete_user().returning(|id| Ok(id.to_owned()));
 
         let result = delete(web::Path::from(user_id), web::Data::new(repo)).await;
-
         assert_eq!(result.status(), StatusCode::NO_CONTENT);
+    }
+
+    #[actix_rt::test]
+    async fn delete_with_error() {
+        let user_id = uuid::Uuid::new_v4();
+
+        let mut repo = MockRepository::default();
+        repo.expect_delete_user().returning(|_id| Err(Error::new("error".to_string(), 422)));
+
+        let result = delete(web::Path::from(user_id), web::Data::new(repo)).await;
+        assert_eq!(result.status(), StatusCode::NOT_FOUND);
     }
 }
