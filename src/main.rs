@@ -30,7 +30,7 @@ async fn main() -> std::io::Result<()> {
     let port = std::env::var("PORT").unwrap_or("8090".to_string());
     let address = format!("127.0.0.1:{}", port);
 
-    tracing::debug!("Starting server at {}", address);
+    tracing::info!("Starting server at {}", address);
     let thread_counter = Arc::new(AtomicU16::new(1));
     let pos_repo = PostgresRepository::from_env().await.expect("Repository initialize error");
     let repo = web::Data::new(pos_repo);
