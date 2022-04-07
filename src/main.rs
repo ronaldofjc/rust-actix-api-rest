@@ -56,3 +56,28 @@ async fn main() -> std::io::Result<()> {
     .run()
     .await
 }
+
+#[cfg(test)]
+mod main {
+    use actix_web::{App, web};
+    use actix_web::http::StatusCode;
+    use crate::health::service;
+
+    #[actix_rt::test]
+    async fn app_main_integration_test() {
+        let app = App::new().app_data(web::Data::new(5u16)).configure(service);
+        let mut app = actix_web::test::init_service(app).await;
+        let req = actix_web::test::TestRequest::get()
+            .uri("/health")
+            .to_request();
+        let res = actix_web::test::call_service(&mut app, req).await;
+        assert!(res.status().is_success());
+        assert_eq!(res.status(), StatusCode::OK);
+        let data = res
+            .headers()
+            .get("thread-id")
+            .map(|h| h.to_str().ok())
+            .flatten();
+        assert_eq!(data, Some("5"))
+    }
+}
