@@ -44,6 +44,8 @@ impl Repository for PostgresRepository {
         ).fetch_all(&self.pool)
         .await;
 
+        tracing::info!("Repository returning {} users", users.as_ref().unwrap().len());
+
         users.map_err(|e| {
             tracing::error!("Error on get all users, error: {:?}", e);
             Error::new("Error on get all users".to_string(), 502)
@@ -86,8 +88,8 @@ impl Repository for PostgresRepository {
 
         let result = sqlx::query_as::<_, User>(
             r#"
-            INSERT INTO users (id, name, email, birth_date, custom_data)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO users (id, name, email, birth_date, custom_data, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6)
             RETURNING id, name, email, birth_date, custom_data, created_at, updated_at
             "#,
         )
@@ -96,8 +98,11 @@ impl Repository for PostgresRepository {
         .bind(&user.email)
         .bind(&user.birth_date)
         .bind(&user.custom_data)
+        .bind(Utc::now())
         .fetch_one(&self.pool)
         .await;
+
+        tracing::info!("User with email {} was created", user.email);
 
         result.map_err(|e| {
             tracing::error!("{:?}", e);
@@ -107,24 +112,30 @@ impl Repository for PostgresRepository {
 
     async fn update_user(&self, user: &User) -> RepositoryResult<User> {
         if let Ok(_old_user) = self.get_user(&user.id).await {
-            if let Ok(_old_user) = self.get_user_by_email(&user.email).await {
-                tracing::warn!("User with email {} already exists", user.email);
-                return Result::Err(Error::new("This user email already exists".to_string(), 422));
+            if let Ok(database_user) = self.get_user_by_email(&user.email).await {
+                if database_user.email != user.email {
+                    tracing::warn!("User with email {} already exists", user.email);
+                    return Result::Err(Error::new("This user email already exists".to_string(), 422));
+                }
             }
 
             let result = sqlx::query_as::<_, User>(
                 r#"
                 UPDATE users
-                SET custom_data = $1, updated_at = $2
-                WHERE id = $3
+                SET custom_data = $1, updated_at = $2, name = $3, email = $4
+                WHERE id = $5
                 RETURNING id, name, email, birth_date, custom_data, created_at, updated_at
                 "#,
             )
             .bind(&user.custom_data)
             .bind(Utc::now())
+            .bind(&user.name)
+            .bind(&user.email)
             .bind(&user.id)
             .fetch_one(&self.pool)
             .await;
+
+            tracing::info!("User with email {} was updated", user.email);
 
             result.map_err(|e| {
                 tracing::error!("{:?}", e);
@@ -147,6 +158,8 @@ impl Repository for PostgresRepository {
         .bind(user_id)
         .fetch_one(&self.pool)
         .await;
+
+        tracing::info!("User with id {} was removed", user_id);
 
         result.map(|u| u.id).map_err(|e| {
             tracing::error!("{:?}", e);
