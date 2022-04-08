@@ -21,3 +21,5 @@ sqlx = { version = "0.5", features = [ "postgres", "runtime-tokio-rustls", "uuid
 [dev-dependencies]
 actix-rt = "2"
 mockall = "0.10"
+httpmock = "0.6"
+isahc = { version = "1.6", features = ["json"] }

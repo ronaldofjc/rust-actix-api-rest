@@ -61,7 +61,24 @@ async fn main() -> std::io::Result<()> {
 mod main {
     use actix_web::{App, web};
     use actix_web::http::StatusCode;
+    use chrono::{NaiveDate, Utc};
+    use httpmock::prelude::*;
+    use isahc::{prelude::*, get};
     use crate::health::service;
+    use crate::user::{CustomData, User};
+
+    pub fn create_test_user(id: uuid::Uuid, name: String, birth_date_ymd: (i32, u32, u32)) -> User {
+        let (year, month, day) = birth_date_ymd;
+        User {
+            id,
+            name,
+            email: "teste@teste.com".to_string(),
+            birth_date: NaiveDate::from_ymd(year, month, day),
+            custom_data: CustomData { random: 1 },
+            created_at: Some(Utc::now()),
+            updated_at: None,
+        }
+    }
 
     #[actix_rt::test]
     async fn app_main_integration_test() {
@@ -79,5 +96,26 @@ mod main {
             .map(|h| h.to_str().ok())
             .flatten();
         assert_eq!(data, Some("5"))
+    }
+
+    #[actix_rt::test]
+    async fn http_rest_get_all_users_test() {
+        let user_id = uuid::Uuid::new_v4();
+        let user_name = "Meu nome";
+
+        let server = MockServer::start();
+        let users = vec![create_test_user(user_id, user_name.to_string(), (1977, 03, 10))];
+        let m = server.mock(|when, then| {
+            when.method(GET)
+                .path("/v1/user");
+            then.status(200).json_body_obj(&users);
+        });
+
+        let mut response = get(&format!("http://{}/v1/user", server.address())).unwrap();
+        let users: Vec<User> = serde_json::from_str(&response.text().unwrap()).expect("cannot deserialize JSON");
+
+        m.assert();
+        assert_eq!(response.status(), 200);
+        assert_eq!(users.get(0).unwrap().name, user_name)
     }
 }
