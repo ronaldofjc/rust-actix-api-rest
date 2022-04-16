@@ -18,3 +18,17 @@ pub struct User {
 pub struct CustomData {
     pub random: i32,
 }
+
+#[allow(dead_code)]
+pub fn create_test_user(id: uuid::Uuid, name: String, birth_date_ymd: (i32, u32, u32)) -> User {
+    let (year, month, day) = birth_date_ymd;
+    User {
+        id,
+        name,
+        email: "teste@teste.com".to_string(),
+        birth_date: NaiveDate::from_ymd(year, month, day),
+        custom_data: CustomData { random: 1 },
+        created_at: Some(Utc::now()),
+        updated_at: None,
+    }
+}
