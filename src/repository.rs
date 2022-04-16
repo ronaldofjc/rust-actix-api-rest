@@ -158,10 +158,8 @@ impl Repository for PostgresRepository {
         .fetch_one(&self.pool)
         .await;
 
-        tracing::info!("User with id {} was removed", user_id);
-
         result.map(|u| u.id).map_err(|e| {
-            tracing::error!("{:?}", e);
+            tracing::error!("Error on remove user: {:?}", e);
             Error::new("This user does not exist".to_string(), 404)
         })
     }

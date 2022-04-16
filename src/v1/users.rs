@@ -63,23 +63,12 @@ fn path_config_handler(err: PathError, _req: &HttpRequest) -> actix_web::Error {
 mod tests {
     use super::*;
     use crate::create_user::{CreateUser, CustomData as OtherCustomData};
-    use crate::user::{CustomData, User};
+    use crate::user::{create_test_user};
     use crate::{repository::MockRepository, Error};
     use actix_web::http::StatusCode;
     use chrono::{NaiveDate, Utc};
 
-    pub fn create_test_user(id: uuid::Uuid, name: String, birth_date_ymd: (i32, u32, u32)) -> User {
-        let (year, month, day) = birth_date_ymd;
-        User {
-            id,
-            name,
-            email: "teste@teste.com".to_string(),
-            birth_date: NaiveDate::from_ymd(year, month, day),
-            custom_data: CustomData { random: 1 },
-            created_at: Some(Utc::now()),
-            updated_at: None,
-        }
-    }
+    const USER_NAME: &str = "Meu nome";
 
     pub fn create_test_user_request(name: String, birth_date_ymd: (i32, u32, u32)) -> CreateUser {
         let (year, month, day) = birth_date_ymd;
@@ -96,11 +85,10 @@ mod tests {
     #[actix_rt::test]
     async fn get_all_with_success() {
         let user_id = uuid::Uuid::new_v4();
-        let user_name = "Meu nome";
 
         let mut repo = MockRepository::default();
         repo.expect_get_all().returning(move || {
-            let users = vec![create_test_user(user_id, user_name.to_string(), (1977, 03, 10))];
+            let users = vec![create_test_user(user_id, USER_NAME.to_string(), (1977, 03, 10))];
             Ok(users)
         });
 
@@ -120,11 +108,10 @@ mod tests {
     #[actix_rt::test]
     async fn get_user_with_success() {
         let user_id = uuid::Uuid::new_v4();
-        let user_name = "Meu nome";
 
         let mut repo = MockRepository::default();
         repo.expect_get_user().returning(move |id| {
-            let user = create_test_user(*id, user_name.to_string(), (1977, 03, 10));
+            let user = create_test_user(*id, USER_NAME.to_string(), (1977, 03, 10));
             Ok(user)
         });
 
@@ -146,12 +133,11 @@ mod tests {
     #[actix_rt::test]
     async fn create_with_success() {
         let user_id = uuid::Uuid::new_v4();
-        let user_name = "Meu nome";
-        let create_user = create_test_user_request(user_name.to_string(), (1977, 03, 10));
+        let create_user = create_test_user_request(USER_NAME.to_string(), (1977, 03, 10));
 
         let mut repo = MockRepository::default();
         repo.expect_create_user().returning(move |_user| {
-            let new_user = create_test_user(user_id, user_name.to_string(), (1977, 03, 10));
+            let new_user = create_test_user(user_id, USER_NAME.to_string(), (1977, 03, 10));
             Ok(new_user)
         });
 
@@ -162,8 +148,7 @@ mod tests {
 
     #[actix_rt::test]
     async fn create_with_error() {
-        let user_name = "Meu nome";
-        let create_user = create_test_user_request(user_name.to_string(), (1977, 03, 10));
+        let create_user = create_test_user_request(USER_NAME.to_string(), (1977, 03, 10));
 
         let mut repo = MockRepository::default();
         repo.expect_create_user().returning(move |_user| Err(Error::new("error".to_string(), 422)));
@@ -175,8 +160,7 @@ mod tests {
     #[actix_rt::test]
     async fn update_with_success() {
         let user_id = uuid::Uuid::new_v4();
-        let user_name = "Meu nome";
-        let new_user = create_test_user(user_id, user_name.to_string(), (1977, 03, 10));
+        let new_user = create_test_user(user_id, USER_NAME.to_string(), (1977, 03, 10));
 
         let mut repo = MockRepository::default();
         repo.expect_update_user().returning(|user| Ok(user.to_owned()));
@@ -188,8 +172,7 @@ mod tests {
     #[actix_rt::test]
     async fn update_with_error() {
         let user_id = uuid::Uuid::new_v4();
-        let user_name = "Meu nome";
-        let new_user = create_test_user(user_id, user_name.to_string(), (1977, 03, 10));
+        let new_user = create_test_user(user_id, USER_NAME.to_string(), (1977, 03, 10));
 
         let mut repo = MockRepository::default();
         repo.expect_update_user().returning(|_user| Err(Error::new("error".to_string(), 422)));
